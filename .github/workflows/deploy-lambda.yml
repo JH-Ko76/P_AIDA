@@ -14,18 +14,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::436395637726:user/Shinnosuke_dev:role/Photo_share_dev
+          role-to-assume: arn:aws:iam::436395637726:role/Photo_share_dev
           aws-region: ap-northeast-2
+
+      - name: Create Lambda package
+        run: |
+          zip -r lambda.zip .
 
       - name: Deploy Lambda
         run: |
-          zip -r lambda.zip .
           aws lambda update-function-code \
             --function-name Photo_share_main \
             --zip-file fileb://lambda.zip
