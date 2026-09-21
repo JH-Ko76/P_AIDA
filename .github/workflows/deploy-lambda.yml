@@ -1,4 +1,4 @@
-name: Build and Deploy Lambda
+name: Deploy Lambda
 
 on:
   push:
@@ -12,78 +12,55 @@ permissions:
   contents: read
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. GitHub Repository 가져오기
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # 2. Amazon Linux 2023 환경에서 C++ 컴파일
-      - name: Build C++ Lambda
+      - name: Debug GitHub OIDC Claims
         run: |
-          docker run --rm \
-            -v "$PWD:/workspace" \
-            -w /workspace \
-            public.ecr.aws/lambda/provided:al2023 \
-            bash -c '
-              dnf install -y gcc-c++ zip
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Ref: $GITHUB_REF"
+          echo "Event: $GITHUB_EVENT_NAME"
 
-              echo "===== C++ Compiler ====="
-              g++ --version
+          TOKEN=$(curl -sSf \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" \
+            | jq -r '.value')
 
-              echo "===== Build ====="
+          PAYLOAD=$(echo "$TOKEN" | cut -d '.' -f2)
 
-              g++ -std=c++17 \
-                *.cpp \
-                -o bootstrap
+          PADDING=$((4 - ${#PAYLOAD} % 4))
+          if [ "$PADDING" -ne 4 ]; then
+            PAYLOAD="${PAYLOAD}$(printf '=%.0s' $(seq 1 $PADDING))"
+          fi
 
-              chmod +x bootstrap
+          echo "$PAYLOAD" | base64 -d | jq '{
+            iss,
+            aud,
+            sub,
+            repository,
+            ref
+          }'
 
-              echo "===== Bootstrap ====="
-              ls -lh bootstrap
-              file bootstrap
-            '
-
-      # 3. Lambda deployment package 생성
-      - name: Create Lambda package
-        run: |
-          rm -f lambda.zip
-
-          zip lambda.zip bootstrap
-
-          echo "===== Lambda Package ====="
-          ls -lh lambda.zip
-          unzip -l lambda.zip
-
-      # 4. AWS OIDC 인증
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::436395637726:role/Photo_Share_Role
           aws-region: ap-northeast-2
 
-      # 5. AWS 인증 확인
       - name: Check AWS Identity
         run: |
           aws sts get-caller-identity
 
-      # 6. Lambda에 새 코드 배포
+      - name: Create Lambda package
+        run: |
+          zip -r lambda.zip .
+
       - name: Deploy Lambda
         run: |
           aws lambda update-function-code \
             --function-name Photo_share_main \
             --zip-file fileb://lambda.zip
-
-      # 7. 배포 완료 확인
-      - name: Check Lambda
-        run: |
-          aws lambda get-function-configuration \
-            --function-name Photo_share_main \
-            --query '{
-              FunctionName:FunctionName,
-              Runtime:Runtime,
-              Architecture:Architectures[0],
-              LastModified:LastModified
-            }'
