@@ -20,7 +20,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::436395637726:role/Photo_share_dev
+          role-to-assume: arn:aws:iam::436395637726:role/Photo_Share_Role
           aws-region: ap-northeast-2
 
       - name: Create Lambda package
