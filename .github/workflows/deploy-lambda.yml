@@ -23,6 +23,12 @@ jobs:
           role-to-assume: arn:aws:iam::436395637726:role/Photo_Share_Role
           aws-region: ap-northeast-2
 
+      - name: Check AWS Identity
+        run: |
+          echo "===== AWS Identity ====="
+          aws sts get-caller-identity
+          echo "========================"
+
       - name: Create Lambda package
         run: |
           zip -r lambda.zip .
