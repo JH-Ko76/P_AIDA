@@ -27,5 +27,5 @@ jobs:
         run: |
           zip -r lambda.zip .
           aws lambda update-function-code \
-            --function-name LAMBDA_NAME \
+            --function-name Photo_share_main \
             --zip-file fileb://lambda.zip
